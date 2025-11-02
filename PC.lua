@@ -635,7 +635,7 @@ local TweenService = game:GetService("TweenService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
-local ePos = Vector3.new(117.09862518310547, 6.694880485534668, -980.73779296875)
+local ePos = Vector3.new(-337.6132507324219, 40.108551025390625, -753.8742065429688)
 
 local function findZangetsu()
     local bossFolder = workspace:FindFirstChild("Main")
