@@ -428,7 +428,9 @@ local AttackValue = 1
 local SelectedType = "Sword"
 
 local WeaponTypes = {
+    ["Tensa Zangetsu"] = "Sword",
     ["Zangetsu"] = "Sword",
+    ["Hellsing Dual Pistol"] = "Sword",
     ["Dark Blade"] = "Sword",
     ["Dual Dagger"] = "Sword",
     ["Tanjiro's Nichirin"] = "Sword",
@@ -572,8 +574,8 @@ end)
 
 TabAutoFarm:AddDropdown("WeaponSelect", {
     Title = "Select Weapon",
-    Values = {"Zangetsu","Dark Blade","Dual Dagger","Tanjiro's Nichirin","Aizen","Sukuna","Akaza","Sandevistan","Dual Katana","Combat"},
-    Default = "Zangetsu",
+    Values = {"Tensa Zangetsu","Zangetsu","Hellsing Dual Pistol","Dark Blade","Dual Dagger","Tanjiro's Nichirin","Aizen","Sukuna","Akaza","Sandevistan","Dual Katana","Combat"},
+    Default = "Combat",
     Callback = function(value)
         SelectedWeapon = value
         SelectedType = WeaponTypes[value] or "Sword"
@@ -625,6 +627,120 @@ TabAutoFarm:AddToggle("AutoKill", {
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------
 local Section = TabAutoFarm:AddSection("Select Boss")
+local KillZangetsuEnabled = false
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local LocalPlayer = Players.LocalPlayer
+local ePos = Vector3.new(117.09862518310547, 6.694880485534668, -980.73779296875)
+
+local function findZangetsu()
+    local bossFolder = workspace:FindFirstChild("Main")
+        and workspace.Main.Characters:FindFirstChild("Innerworld")
+        and workspace.Main.Characters.Innerworld:FindFirstChild("Boss")
+
+    if not bossFolder then return nil end
+
+    for _, npc in ipairs(bossFolder:GetChildren()) do
+        if npc.Name:match("Zangetsu") then
+            return npc
+        end
+    end
+
+    return nil
+end
+
+local function attackZangetsu(npc, HumanoidRootPart)
+    local humanoid = npc:FindFirstChild("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then return false end
+
+    local function attack()
+        local args = {
+            [1] = "Server",
+            [2] = SelectedType,
+            [3] = "M1s",
+            [4] = SelectedWeapon,
+            [5] = AttackValue
+        }
+        ReplicatedStorage.Remotes.Serverside:FireServer(unpack(args))
+    end
+
+    local function stayBehind(npc)
+        local hrp = npc:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local backOffset = hrp.CFrame.LookVector * -3
+        local newPos = hrp.Position + backOffset
+        local tween = TweenService:Create(HumanoidRootPart, TweenInfo.new(0.08), {
+            CFrame = CFrame.new(newPos, hrp.Position)
+        })
+        tween:Play()
+        tween.Completed:Wait()
+    end
+
+    while KillZangetsuEnabled and humanoid.Health > 0 and HumanoidRootPart.Parent:FindFirstChild("Humanoid") and HumanoidRootPart.Parent.Humanoid.Health > 0 do
+        stayBehind(npc)
+        attack()
+        task.wait(0.01)
+    end
+
+    return humanoid.Health <= 0
+end
+
+local function attackZangetsuLoop(HumanoidRootPart)
+    while KillZangetsuEnabled do
+        local zangetsuFound = findZangetsu()
+
+        if zangetsuFound and zangetsuFound:FindFirstChild("Humanoid") and zangetsuFound.Humanoid.Health > 0 then
+            attackZangetsu(zangetsuFound, HumanoidRootPart)
+        else
+            HumanoidRootPart.CFrame = CFrame.new(ePos)
+            task.wait(0.1)
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+            task.wait(0.0)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+            task.wait(0.0)
+        end
+
+        task.wait(0.5)
+    end
+end
+
+local function startKillZangetsu()
+    task.spawn(function()
+        while KillZangetsuEnabled do
+            local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+            local Humanoid = Character:WaitForChild("Humanoid")
+            local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+            repeat task.wait(0.1) Humanoid = Character:FindFirstChild("Humanoid") until Humanoid and Humanoid.Health > 0
+            attackZangetsuLoop(HumanoidRootPart)
+            task.wait(0.5)
+        end
+    end)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(Character)
+    if KillZangetsuEnabled then
+        task.wait(1)
+        local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+        attackZangetsuLoop(HumanoidRootPart)
+    end
+end)
+
+TabAutoFarm:AddToggle("KillZangetsu", {
+    Title = "Auto Kill Boss Zangetsu",
+    Default = false,
+    Callback = function(state)
+        KillZangetsuEnabled = state
+        if state then
+            startKillZangetsu()
+        end
+    end
+})
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------
 local KillAlucardEnabled = false
 
 local Players = game:GetService("Players")
@@ -1326,6 +1442,7 @@ local allNPCs = {
     workspace.Main.NPCs["Boss Spawn2"],
     workspace.Main.NPCs["Boss Spawn3"],
     workspace.Main.NPCs["Boss Spawn4"],
+    workspace.Main.NPCs.Sword["Tensa Zangetsu"],
     workspace.Main.NPCs.Exchange,
     workspace.Main.NPCs["Fishing Rod"],
     workspace.Main.NPCs["Fruit Reroll Gem"],
